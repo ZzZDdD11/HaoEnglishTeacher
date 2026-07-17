@@ -1,0 +1,30 @@
+[project]
+name = "shadowing-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]>=0.110",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg",
+    "alembic",
+    "celery[redis]",
+    "redis",
+    "yt-dlp",
+    "openai-whisper",
+    "azure-cognitiveservices-speech",
+    "pydantic-settings",
+    "httpx",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
