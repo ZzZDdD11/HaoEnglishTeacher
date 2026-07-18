@@ -25,6 +25,13 @@ dev = [
     "httpx",
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
