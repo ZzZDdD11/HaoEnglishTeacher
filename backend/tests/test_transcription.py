@@ -16,11 +16,11 @@ async def test_transcribe_audio(tmp_path):
         str(test_wav)
     ], capture_output=True, check=True)
 
-    result = await transcribe_audio(str(test_wav))
+    result = transcribe_audio(str(test_wav))
     assert isinstance(result, list)
 
 
 @pytest.mark.asyncio
 async def test_transcribe_audio_not_found():
     with pytest.raises(FileNotFoundError):
-        await transcribe_audio("/nonexistent/path.wav")
+        transcribe_audio("/nonexistent/path.wav")

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -12,7 +14,7 @@ class MaterialResponse(BaseModel):
     title: str
     duration_seconds: float
     status: str
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

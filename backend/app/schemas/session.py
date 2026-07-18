@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -15,8 +17,8 @@ class SessionResponse(BaseModel):
     pronunciation_score: float | None = None
     rhythm_score: float | None = None
     intonation_score: float | None = None
-    completed_at: str | None = None
-    created_at: str
+    completed_at: datetime | None = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

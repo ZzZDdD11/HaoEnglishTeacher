@@ -13,7 +13,7 @@ class VideoInfo:
     duration_seconds: float
 
 
-async def download_video(url: str) -> str:
+def download_video(url: str) -> str:
     """Download video audio and convert to WAV 16kHz mono.
 
     Returns path to the output WAV file.

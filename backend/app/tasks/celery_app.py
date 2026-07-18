@@ -6,6 +6,7 @@ celery_app = Celery(
     "shadowing",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=["app.tasks.process_video"],
 )
 
 celery_app.conf.update(

@@ -31,7 +31,7 @@ def _get_model() -> whisper.Whisper:
     return _model
 
 
-async def transcribe_audio(audio_path: str) -> list[TranscriptSegment]:
+def transcribe_audio(audio_path: str) -> list[TranscriptSegment]:
     """Transcribe audio file to text with word-level timestamps.
 
     Uses Whisper small model. Returns sentence-level segments.
