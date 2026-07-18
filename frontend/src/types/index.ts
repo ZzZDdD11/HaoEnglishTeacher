@@ -63,6 +63,11 @@ export interface PracticeReport {
   material_title: string;
 }
 
+// ===== API Responses =====
+export interface MaterialDetailResponse extends Material {
+  transcript: TranscriptSentence[] | null;
+}
+
 // ===== API Payloads =====
 export interface CreateMaterialPayload {
   source_url: string;
