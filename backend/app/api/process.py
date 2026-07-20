@@ -1,5 +1,5 @@
+import os
 import uuid
-import asyncio
 import threading
 from dataclasses import dataclass
 
@@ -36,6 +36,7 @@ def _download_and_transcribe(task_id: str, source_url: str):
             "material_id": None,
             "segments": segments,
             "source_url": source_url,
+            "audio_path": audio_path,
         }
 
     except Exception as e:
@@ -62,6 +63,7 @@ async def get_process_status(task_id: str):
         material_id = str(uuid.uuid4())
         segments = info["segments"]
         source_url = info["source_url"]
+        audio_filename = os.path.basename(info.get("audio_path", ""))
 
         async with async_session() as db:
             material = Material(
@@ -85,6 +87,7 @@ async def get_process_status(task_id: str):
                         for s in segments
                     ]
                 },
+                audio_filename=audio_filename,
                 status="ready",
             )
             db.add(material)

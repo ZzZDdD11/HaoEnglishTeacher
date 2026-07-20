@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings",
     "httpx",
     "python-multipart",
+    "psycopg2-binary>=2.9.12",
 ]
 
 [dependency-groups]
