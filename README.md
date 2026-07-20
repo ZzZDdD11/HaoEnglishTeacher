@@ -40,11 +40,42 @@ docker compose up
 
 ## 开发
 
+### Python 环境管理（uv）
+
+后端使用 [uv](https://docs.astral.sh/uv/) 管理虚拟环境与依赖。首次安装 uv：
+
+```bash
+# macOS
+brew install uv
+# 或
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+常用命令（均在 `backend/` 目录下执行）：
+
+```bash
+uv sync              # 创建 .venv 并按 uv.lock 安装全部依赖（含 dev 组）
+uv sync --no-dev     # 仅安装生产依赖
+uv add <pkg>         # 新增运行时依赖（自动更新 pyproject.toml 与 uv.lock）
+uv add --dev <pkg>   # 新增开发依赖
+uv lock --upgrade    # 升级锁定的依赖版本
+uv run <cmd>         # 在 .venv 中执行命令，如 uv run uvicorn app.main:app
+```
+
+> Python 版本由 `backend/.python-version`（3.11）固定，uv 会按需自动下载对应 CPython。
+
+### 后端本地运行
+
+```bash
+cd backend
+uv run uvicorn app.main:app --reload
+```
+
 ### 后端测试
 
 ```bash
 cd backend
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ### 前端构建
