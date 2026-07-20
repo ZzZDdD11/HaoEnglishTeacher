@@ -191,6 +191,7 @@ export default function PracticePage() {
             <RecorderPanel
               onRecordingComplete={handleRecordingComplete}
               disabled={false}
+              autoStart={true}
             />
           )}
 

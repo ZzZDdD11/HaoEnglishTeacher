@@ -8,9 +8,14 @@ import WaveformCompare from "@/components/WaveformCompare";
 interface Props {
   onRecordingComplete: (blob: Blob) => void;
   disabled?: boolean;
+  autoStart?: boolean;
 }
 
-export default function RecorderPanel({ onRecordingComplete, disabled }: Props) {
+export default function RecorderPanel({
+  onRecordingComplete,
+  disabled,
+  autoStart = false,
+}: Props) {
   const { start, stop, audioBlob, isRecording, duration, audioUrl } = useRecorder();
   const userWaveform = useWaveform(audioUrl);
 
@@ -21,6 +26,14 @@ export default function RecorderPanel({ onRecordingComplete, disabled }: Props) 
       await start();
     }
   };
+
+  // Auto-start recording when autoStart is set (used by auto-flow)
+  useEffect(() => {
+    if (autoStart && !isRecording) {
+      start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   // Auto-submit when recording stops
   const prevBlobRef = useRef<Blob | null>(null);
@@ -48,7 +61,7 @@ export default function RecorderPanel({ onRecordingComplete, disabled }: Props) 
             : "bg-blue-600 text-white hover:bg-blue-700"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        {isRecording ? `🔴 录音中 ${formatDuration(duration)} — 点击停止` : "🎤 点击开始录音"}
+        {isRecording ? `🔴 录音中 ${formatDuration(duration)} — 点击停止` : "🎤 录音准备中..."}
       </button>
 
       {audioUrl && (
