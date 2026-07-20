@@ -1,21 +1,34 @@
-import os
-
 import azure.cognitiveservices.speech as speechsdk
 
 from app.config import settings
 from app.schemas.evaluation import EvaluationResult, WordScoreItem
 from app.services.suggestion import generate_suggestions
+from app.services import whisper_similarity
 
 
 async def evaluate_pronunciation(
-    reference_audio_path: str,
     user_audio_path: str,
     reference_text: str,
 ) -> EvaluationResult:
-    """Compare user pronunciation to reference using Azure Speech API.
+    """Evaluate user pronunciation.
 
-    Requires AZURE_SPEECH_KEY and AZURE_SPEECH_REGION env vars.
+    Uses Azure Speech Pronunciation Assessment when AZURE_SPEECH_KEY is
+    configured; otherwise falls back to Whisper + text similarity (the
+    zero-config default that requires no external signup).
     """
+    if not reference_text.strip():
+        raise ValueError("reference_text is required")
+
+    if settings.azure_speech_key:
+        return await _evaluate_azure(user_audio_path, reference_text)
+    return whisper_similarity.evaluate_by_similarity(user_audio_path, reference_text)
+
+
+async def _evaluate_azure(
+    user_audio_path: str,
+    reference_text: str,
+) -> EvaluationResult:
+    """Azure Speech Pronunciation Assessment (requires AZURE_SPEECH_KEY)."""
     if not settings.azure_speech_key:
         raise ValueError("Azure Speech key not configured")
 
@@ -24,7 +37,6 @@ async def evaluate_pronunciation(
         region=settings.azure_speech_region,
     )
 
-    # Build pronunciation assessment config
     pronunciation_config = speechsdk.PronunciationAssessmentConfig(
         reference_text=reference_text,
         grading_system=speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
@@ -32,7 +44,6 @@ async def evaluate_pronunciation(
     )
     pronunciation_config.enable_prosody_assessment()
 
-    # Recognize user audio
     audio_config = speechsdk.AudioConfig(filename=user_audio_path)
     recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
@@ -59,11 +70,9 @@ def _parse_pronunciation_result(result) -> EvaluationResult:
     import json
     data = json.loads(json_result)
 
-    # Overall scores
     pron_info = data.get("NBest", [{}])[0]
     pron_score = pron_info.get("PronunciationAssessment", {}).get("PronScore", 0.0)
 
-    # Word-level scores
     words = pron_info.get("Words", [])
     word_scores = []
     for w in words:
@@ -76,16 +85,18 @@ def _parse_pronunciation_result(result) -> EvaluationResult:
                 issue = _describe_issue(word_text, error_type)
         word_scores.append(WordScoreItem(word=word_text, score=wscore, issue=issue))
 
-    # Prosody scores
-    prosody = data.get("NBest", [{}])[0].get("PronunciationAssessment", {}).get("ProsodyScore", 0.0)
+    prosody = (
+        data.get("NBest", [{}])[0]
+        .get("PronunciationAssessment", {})
+        .get("ProsodyScore", 0.0)
+    )
 
-    # Generate suggestions from word scores
     suggestions = generate_suggestions(word_scores)
 
     return EvaluationResult(
         overall_score=pron_score,
         pronunciation_score=pron_score,
-        rhythm_score=prosody,  # Azure doesn't split rhythm/intonation in basic mode
+        rhythm_score=prosody,
         intonation_score=prosody,
         word_scores=word_scores,
         suggestions=suggestions,
