@@ -24,6 +24,7 @@ export default function PracticePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [replayKey, setReplayKey] = useState(0);
 
   const lastAttempt = attempts[currentIndex];
   const userWaveform = useWaveform(null);
@@ -62,7 +63,8 @@ export default function PracticePage() {
       const result = await apiClient.submitAttempt(
         sessionId,
         blob,
-        currentSentence.sentence_index
+        currentSentence.sentence_index,
+        currentSentence.text
       );
       setAttempts((prev) => ({
         ...prev,
@@ -132,6 +134,7 @@ export default function PracticePage() {
         {/* Left: Video + sentence */}
         <div className="space-y-4">
           <VideoPlayer
+            key={`${currentIndex}-${replayKey}`}
             sourceUrl={material.source_url}
             startMs={currentSentence?.start_ms}
             endMs={currentSentence?.end_ms}
@@ -217,10 +220,7 @@ export default function PracticePage() {
           </button>
 
           <button
-            onClick={() => {
-              // Replay current: go to sentence again triggers VideoPlayer reload
-              goToSentence(currentIndex);
-            }}
+            onClick={() => setReplayKey((k) => k + 1)}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             ▶ 重播

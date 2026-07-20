@@ -92,7 +92,9 @@ export default function ReportPage() {
             <SentenceReview
               key={attempt.id}
               attempt={attempt}
-              sentenceText={`第 ${attempt.sentence_index + 1} 句`}
+              sentenceText={
+                attempt.sentence_text ?? `第 ${attempt.sentence_index + 1} 句`
+              }
               index={attempt.sentence_index}
             />
           ))}

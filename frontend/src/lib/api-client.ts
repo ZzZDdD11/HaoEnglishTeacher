@@ -54,11 +54,13 @@ class ApiClient {
   async submitAttempt(
     sessionId: string,
     audio: Blob,
-    sentenceIndex: number
+    sentenceIndex: number,
+    referenceText: string
   ): Promise<SubmitAttemptResponse> {
     const formData = new FormData();
     formData.append("audio", audio, "recording.wav");
     formData.append("sentence_index", String(sentenceIndex));
+    formData.append("reference_text", referenceText);
 
     const res = await fetch(`${BFF_BASE}/sessions/${sessionId}/attempts`, {
       method: "POST",

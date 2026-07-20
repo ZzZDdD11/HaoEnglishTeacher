@@ -49,6 +49,7 @@ export interface SentenceAttempt {
   id: string;
   session_id: string;
   sentence_index: number;
+  sentence_text?: string;
   score: number;
   word_scores: WordScore[];
   waveform_data: number[] | null;
