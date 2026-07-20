@@ -17,5 +17,6 @@ class Material(Base):
     title: Mapped[str] = mapped_column(String(500), default="")
     duration_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     transcript_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    audio_filename: Mapped[str] = mapped_column(String(255), default="", server_default="")
     status: Mapped[str] = mapped_column(String(20), default="processing")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
