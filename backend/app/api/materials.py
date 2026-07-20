@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.database import get_db
 from app.models.material import Material
 from app.schemas.material import MaterialResponse, MaterialDetailResponse
@@ -26,9 +30,29 @@ async def get_material(
     result = await db.execute(select(Material).where(Material.id == material_id))
     material = result.scalar_one_or_none()
     if material is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Material not found")
 
     resp = MaterialDetailResponse.model_validate(material)
     resp.transcript = material.transcript_json.get("segments", []) if material.transcript_json else None
     return resp
+
+
+@router.get("/{material_id}/audio")
+async def get_material_audio(
+    material_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Serve the reference audio WAV file for a material."""
+    result = await db.execute(select(Material).where(Material.id == material_id))
+    material = result.scalar_one_or_none()
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    if not material.audio_filename:
+        raise HTTPException(status_code=404, detail="Audio not available")
+
+    audio_path = os.path.join(settings.upload_dir, material.audio_filename)
+    if not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    return FileResponse(audio_path, media_type="audio/wav")
