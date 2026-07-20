@@ -18,6 +18,7 @@ class AttemptResponse(BaseModel):
     score: float
     word_scores: list[dict] | None = None
     suggestions: list[str] | None = None
+    sentence_text: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
