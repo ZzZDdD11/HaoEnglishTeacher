@@ -80,6 +80,17 @@ async def update_session(
     return SessionResponse.model_validate(session)
 
 
+def _sentence_text_for(material, sentence_index: int) -> str | None:
+    """Look up the transcript text for a given sentence index."""
+    if not material or not material.transcript_json:
+        return None
+    segments = material.transcript_json.get("segments", [])
+    for seg in segments:
+        if seg.get("sentence_index") == sentence_index:
+            return seg.get("text")
+    return None
+
+
 @router.get("/{session_id}/report")
 async def get_session_report(
     session_id: str,
@@ -105,7 +116,7 @@ async def get_session_report(
     )
     attempts = attempt_result.scalars().all()
 
-    # Get material title
+    # Get material (for title + transcript text)
     mat_result = await db.execute(
         select(Material).where(Material.id == session.material_id)
     )
@@ -113,10 +124,14 @@ async def get_session_report(
 
     from app.schemas.attempt import AttemptResponse
 
+    attempt_responses = []
+    for a in attempts:
+        resp = AttemptResponse.model_validate(a)
+        resp.sentence_text = _sentence_text_for(material, a.sentence_index)
+        attempt_responses.append(resp)
+
     return {
         "session": SessionResponse.model_validate(session).model_dump(),
-        "attempts": [
-            AttemptResponse.model_validate(a).model_dump() for a in attempts
-        ],
+        "attempts": [r.model_dump() for r in attempt_responses],
         "material_title": material.title if material else "",
     }
