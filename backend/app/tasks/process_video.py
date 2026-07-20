@@ -1,3 +1,5 @@
+import os
+
 from app.tasks.celery_app import celery_app
 from app.services.video import download_video
 from app.services.transcription import transcribe_audio
@@ -5,6 +7,11 @@ from app.models.material import Material
 from app.db.database import async_session
 from dataclasses import asdict
 import uuid
+
+
+def _audio_filename_from_path(audio_path: str) -> str:
+    """Extract the wav filename from the full path returned by download_video."""
+    return os.path.basename(audio_path)
 
 
 @celery_app.task(bind=True)
@@ -49,6 +56,7 @@ def process_video_task(self, source_url: str):
                             for s in segments
                         ]
                     },
+                    audio_filename=_audio_filename_from_path(audio_path),
                     status="ready",
                 )
                 db.add(material)
