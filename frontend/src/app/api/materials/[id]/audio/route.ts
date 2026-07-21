@@ -6,7 +6,12 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const res = await fetch(`${PYTHON_SERVICE}/materials/${params.id}/audio`);
+  // Audio files are typically well over Next.js's 2MB data-cache limit;
+  // opt out of caching entirely to avoid "Failed to set fetch cache" noise
+  // and the retry/stall it can cause.
+  const res = await fetch(`${PYTHON_SERVICE}/materials/${params.id}/audio`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     return NextResponse.json(
