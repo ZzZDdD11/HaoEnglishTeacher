@@ -1,4 +1,7 @@
+import { cn } from "@/lib/utils";
 import type { SentenceAttempt } from "@/types";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import ScoreDisplay from "@/components/ScoreDisplay";
 
 interface Props {
@@ -11,42 +14,47 @@ export default function SentenceReview({ attempt, sentenceText, index }: Props) 
   const isLowScore = attempt.score < 60;
 
   return (
-    <div className={`p-4 rounded-xl border ${isLowScore ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
+    <Card
+      className={cn(
+        "fade-up overflow-hidden",
+        isLowScore ? "border-danger/30" : "border-border"
+      )}
+    >
+      <div className="p-4 flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-400 font-mono">#{index + 1}</span>
-            <span className="text-sm text-gray-500">
-              {isLowScore ? "⚠️ 需要改进" : "✅ 不错"}
+            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+              {String(index + 1).padStart(2, "0")}
             </span>
+            <Badge variant={isLowScore ? "danger" : "accent"}>
+              {isLowScore ? "需改进" : "不错"}
+            </Badge>
           </div>
-          <p className="text-gray-800 font-medium">{sentenceText}</p>
+          <p className="font-display text-lg text-foreground leading-snug">
+            {sentenceText}
+          </p>
 
-          {attempt.word_scores && (
+          {attempt.word_scores && attempt.word_scores.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3">
               {attempt.word_scores.map((ws, i) => (
-                <span
+                <Badge
                   key={i}
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-sm ${
-                    ws.score >= 80
-                      ? "bg-green-100 text-green-700"
-                      : ws.score >= 60
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
+                  variant={
+                    ws.score >= 80 ? "accent" : ws.score >= 60 ? "warning" : "danger"
+                  }
                 >
                   {ws.word}
                   {ws.issue && (
-                    <span className="ml-1 text-xs opacity-70">{ws.issue}</span>
+                    <span className="ml-1 opacity-60 text-[10px]">{ws.issue}</span>
                   )}
-                </span>
+                </Badge>
               ))}
             </div>
           )}
         </div>
 
-        <ScoreDisplay score={attempt.score} />
+        <ScoreDisplay score={attempt.score} size="sm" />
       </div>
-    </div>
+    </Card>
   );
 }

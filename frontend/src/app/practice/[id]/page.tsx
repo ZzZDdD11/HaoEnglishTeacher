@@ -8,6 +8,10 @@ import VideoPlayer from "@/components/VideoPlayer";
 import RecorderPanel from "@/components/RecorderPanel";
 import ScoreDisplay from "@/components/ScoreDisplay";
 import ProgressBar from "@/components/ProgressBar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { Material, TranscriptSentence, SentenceAttempt } from "@/types";
 
 type Phase = "idle" | "playing" | "recording" | "evaluating" | "showing_score";
@@ -56,7 +60,6 @@ export default function PracticePage() {
     }
   };
 
-  // When sentence changes (and autoFlow on), start playing
   useEffect(() => {
     if (material && currentSentence) {
       setPhase("playing");
@@ -89,7 +92,6 @@ export default function PracticePage() {
     [sessionId, currentSentence, currentIndex]
   );
 
-  // After showing score, auto-advance after 3s if autoFlow on
   useEffect(() => {
     if (phase !== "showing_score" || !autoFlow) return;
     const total = material?.transcript?.length ?? 0;
@@ -129,7 +131,11 @@ export default function PracticePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-blue-500 rounded-full" />
+        <div className="flex items-end gap-0.5 h-5">
+          <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "0ms" }} />
+          <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "150ms" }} />
+          <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "300ms" }} />
+        </div>
       </div>
     );
   }
@@ -137,8 +143,8 @@ export default function PracticePage() {
   if (error || !material || !material.transcript) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <p className="text-red-500">{error || "素材加载失败"}</p>
-        <button onClick={() => router.push("/")} className="text-blue-600 hover:underline">
+        <p className="text-danger">{error || "素材加载失败"}</p>
+        <button onClick={() => router.push("/")} className="text-accent hover:underline">
           返回首页
         </button>
       </div>
@@ -153,16 +159,21 @@ export default function PracticePage() {
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => router.push("/")}
-          className="text-gray-500 hover:text-gray-700"
+          className="text-muted-foreground hover:text-foreground transition-colors text-sm"
         >
-          ← 返回素材
+          ← 返回
         </button>
-        <h2 className="font-semibold text-gray-800 truncate max-w-md">
+        <h2 className="font-display text-lg text-foreground truncate max-w-md">
           {material.title || "练习中"}
         </h2>
-        <span className="text-sm text-gray-500">
-          第 {currentIndex + 1}/{total} 句 · {phaseLabel(phase)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {currentIndex + 1}/{total}
+          </span>
+          <Badge variant={phase === "recording" ? "danger" : phase === "evaluating" ? "warning" : "accent"}>
+            {phaseLabel(phase)}
+          </Badge>
+        </div>
       </div>
 
       {/* Main content: video + sidebar */}
@@ -178,11 +189,14 @@ export default function PracticePage() {
             onAudioEnded={handleAudioEnded}
           />
 
-          <div className="p-4 bg-white rounded-xl border border-gray-200 min-h-[80px]">
-            <p className="text-lg font-medium text-gray-800">
+          <Card className="p-5 fade-up" key={currentIndex}>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-2 font-mono">
+              Sentence {currentIndex + 1}
+            </div>
+            <p className="font-display text-xl text-foreground leading-snug">
               {currentSentence?.text || "—"}
             </p>
-          </div>
+          </Card>
         </div>
 
         {/* Right: Recorder + feedback */}
@@ -196,106 +210,121 @@ export default function PracticePage() {
           )}
 
           {phase === "evaluating" && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 justify-center">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-              正在评估发音...
-            </div>
+            <Card className="p-8 flex flex-col items-center gap-3">
+              <div className="flex items-end gap-0.5 h-6">
+                <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "0ms" }} />
+                <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "120ms" }} />
+                <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "240ms" }} />
+                <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "360ms" }} />
+                <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "480ms" }} />
+              </div>
+              <span className="text-sm text-muted-foreground">正在评估发音...</span>
+            </Card>
           )}
 
           {phase === "showing_score" && lastAttempt && (
-            <div className="p-4 bg-white rounded-xl border border-gray-200 space-y-4">
+            <Card className="p-6 space-y-5 fade-up">
               <ScoreDisplay score={lastAttempt.score} label="本句得分" />
+
               {lastAttempt.word_scores && lastAttempt.word_scores.length > 0 && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">逐词评分</div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-2 font-mono">
+                    逐词评分
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
                     {lastAttempt.word_scores.map((ws, i) => (
-                      <span
+                      <Badge
                         key={i}
-                        className={`px-2 py-1 rounded text-sm font-medium ${
+                        variant={
                           ws.score >= 80
-                            ? "bg-green-100 text-green-700"
+                            ? "accent"
                             : ws.score >= 60
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
+                            ? "warning"
+                            : "danger"
+                        }
                       >
                         {ws.word} {Math.round(ws.score)}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
               )}
+
               {lastAttempt.suggestions && lastAttempt.suggestions.length > 0 && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">纠音建议</div>
-                  <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-2 font-mono">
+                    纠音建议
+                  </div>
+                  <ul className="space-y-1.5">
                     {lastAttempt.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
+                      <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
+                        <span className="text-accent mt-0.5 font-mono text-xs">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span>{s}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
-            </div>
+            </Card>
           )}
         </div>
       </div>
 
       {/* Bottom bar: auto-flow controls + navigation */}
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex-1 max-w-md">
+        <div className="flex-1 max-w-md w-full">
           <ProgressBar current={currentIndex + 1} total={total} />
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap justify-center">
-          <button
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <Button
+            variant={autoFlow ? "accent" : "outline"}
+            size="sm"
             onClick={() => setAutoFlow((a) => !a)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium ${
-              autoFlow
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-600"
-            }`}
           >
-            {autoFlow ? "⏸ 暂停自动" : "▶ 开启自动"}
-          </button>
+            {autoFlow ? "⏸ 自动" : "▶ 手动"}
+          </Button>
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleReRecord}
             disabled={phase !== "showing_score"}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             🔁 重录
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setReplayKey((k) => k + 1)}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
           >
             ▶ 重播
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => goToSentence(currentIndex - 1)}
             disabled={currentIndex === 0}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             ⏮
-          </button>
+          </Button>
 
           {currentIndex < total - 1 ? (
-            <button
+            <Button
+              variant="default"
+              size="sm"
               onClick={() => goToSentence(currentIndex + 1)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
             >
               下一句 ⏭
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={handleComplete}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm"
-            >
+            <Button variant="accent" size="sm" onClick={handleComplete}>
               完成 ✓
-            </button>
+            </Button>
           )}
         </div>
       </div>

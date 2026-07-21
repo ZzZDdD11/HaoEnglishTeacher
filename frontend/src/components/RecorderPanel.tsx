@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useWaveform } from "@/hooks/useWaveform";
 import WaveformCompare from "@/components/WaveformCompare";
+import { cn } from "@/lib/utils";
 
 interface Props {
   onRecordingComplete: (blob: Blob) => void;
@@ -27,7 +28,6 @@ export default function RecorderPanel({
     }
   };
 
-  // Auto-start recording when autoStart is set (used by auto-flow)
   useEffect(() => {
     if (autoStart && !isRecording) {
       start();
@@ -35,7 +35,6 @@ export default function RecorderPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
-  // Auto-submit when recording stops
   const prevBlobRef = useRef<Blob | null>(null);
   useEffect(() => {
     if (audioBlob && audioBlob !== prevBlobRef.current) {
@@ -51,22 +50,41 @@ export default function RecorderPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 fade-up">
       <button
         onClick={handleToggleRecording}
         disabled={disabled}
-        className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
+        className={cn(
+          "w-full py-6 rounded-xl text-base font-medium transition-all duration-300 flex flex-col items-center justify-center gap-3",
           isRecording
-            ? "bg-red-500 text-white animate-pulse"
-            : "bg-blue-600 text-white hover:bg-blue-700"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+            ? "bg-recording text-white pulse-recording"
+            : "bg-muted/40 border border-border text-foreground hover:border-accent/40 hover:bg-accent/[0.04]",
+          disabled && "opacity-40 cursor-not-allowed"
+        )}
       >
-        {isRecording ? `🔴 录音中 ${formatDuration(duration)} — 点击停止` : "🎤 录音准备中..."}
+        {isRecording ? (
+          <>
+            <div className="flex items-end gap-1 h-6">
+              <span className="eq-bar w-1 h-full bg-white" style={{ animationDelay: "0ms" }} />
+              <span className="eq-bar w-1 h-full bg-white" style={{ animationDelay: "120ms" }} />
+              <span className="eq-bar w-1 h-full bg-white" style={{ animationDelay: "240ms" }} />
+              <span className="eq-bar w-1 h-full bg-white" style={{ animationDelay: "360ms" }} />
+              <span className="eq-bar w-1 h-full bg-white" style={{ animationDelay: "480ms" }} />
+            </div>
+            <span className="font-mono tabular-nums">{formatDuration(duration)}</span>
+            <span className="text-xs opacity-80">说话后自动停止</span>
+          </>
+        ) : (
+          <>
+            <span className="text-2xl">🎙</span>
+            <span>{autoStart ? "准备录音" : "点击开始录音"}</span>
+          </>
+        )}
       </button>
 
       {audioUrl && (
         <WaveformCompare
-          referenceWaveform={[]} // Will be filled from material data
+          referenceWaveform={[]}
           userWaveform={userWaveform}
         />
       )}

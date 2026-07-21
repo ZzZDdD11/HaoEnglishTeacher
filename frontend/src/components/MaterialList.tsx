@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { guestStorage } from "@/lib/storage";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { Material } from "@/types";
 
 interface Props {
@@ -23,7 +25,6 @@ export default function MaterialList({ refreshKey }: Props) {
       const data = await apiClient.listMaterials();
       setMaterials(data);
     } catch {
-      // No materials yet — that's ok
       setMaterials([]);
     } finally {
       setLoading(false);
@@ -32,16 +33,21 @@ export default function MaterialList({ refreshKey }: Props) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-8 text-gray-400">
-        <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-blue-500 rounded-full" />
+      <div className="flex justify-center py-12">
+        <div className="flex items-end gap-0.5 h-5">
+          <span className="eq-bar w-1 h-full bg-muted-foreground" style={{ animationDelay: "0ms" }} />
+          <span className="eq-bar w-1 h-full bg-muted-foreground" style={{ animationDelay: "150ms" }} />
+          <span className="eq-bar w-1 h-full bg-muted-foreground" style={{ animationDelay: "300ms" }} />
+        </div>
       </div>
     );
   }
 
   if (materials.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
-        还没有练习素材，粘贴一个视频链接开始吧
+      <div className="text-center py-16 text-muted-foreground">
+        <div className="font-display text-lg mb-1">还没有练习素材</div>
+        <div className="text-sm">粘贴一个视频链接开始吧</div>
       </div>
     );
   }
@@ -49,31 +55,33 @@ export default function MaterialList({ refreshKey }: Props) {
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {materials.map((m) => (
-        <Link
-          key={m.id}
-          href={`/practice/${m.id}`}
-          className="block p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all"
-        >
-          <h3 className="font-semibold text-gray-900 truncate">
-            {m.title || "未命名素材"}
-          </h3>
-          <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                m.status === "ready"
-                  ? "bg-green-500"
-                  : m.status === "error"
-                  ? "bg-red-500"
-                  : "bg-yellow-500"
-              }`}
-            />
-            {m.status === "ready" ? "就绪" : m.status === "error" ? "失败" : "处理中"}
-          </div>
-          {m.duration_seconds > 0 && (
-            <div className="mt-1 text-xs text-gray-400">
-              {Math.floor(m.duration_seconds / 60)}分{Math.floor(m.duration_seconds % 60)}秒
+        <Link key={m.id} href={`/practice/${m.id}`} className="block">
+          <Card className="p-5 hover:border-accent/40 hover:bg-accent/[0.03] transition-all duration-300 group cursor-pointer h-full">
+            <h3 className="font-display text-base text-foreground truncate group-hover:text-accent transition-colors">
+              {m.title || "未命名素材"}
+            </h3>
+            <div className="mt-3 flex items-center gap-2">
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  m.status === "ready"
+                    ? "bg-accent"
+                    : m.status === "error"
+                    ? "bg-danger"
+                    : "bg-warning animate-pulse"
+                )}
+              />
+              <span className="text-xs text-muted-foreground">
+                {m.status === "ready" ? "就绪" : m.status === "error" ? "失败" : "处理中"}
+              </span>
             </div>
-          )}
+            {m.duration_seconds > 0 && (
+              <div className="mt-1 text-xs font-mono text-muted-foreground tabular-nums">
+                {Math.floor(m.duration_seconds / 60)}:
+                {String(Math.floor(m.duration_seconds % 60)).padStart(2, "0")}
+              </div>
+            )}
+          </Card>
         </Link>
       ))}
     </div>

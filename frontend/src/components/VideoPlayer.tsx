@@ -23,7 +23,6 @@ export default function VideoPlayer({
     sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be");
   const isBilibili = sourceUrl.includes("bilibili.com");
 
-  // Drive the <audio> element: seek to start, play, pause at end
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audioSrc) return;
@@ -33,9 +32,7 @@ export default function VideoPlayer({
 
     const onLoadedMetadata = () => {
       audio.currentTime = startSec;
-      audio.play().catch(() => {
-        /* autoplay may be blocked; user gesture will retry via replay */
-      });
+      audio.play().catch(() => {});
     };
 
     const onTimeUpdate = () => {
@@ -60,7 +57,6 @@ export default function VideoPlayer({
     };
   }, [audioSrc, startMs, endMs, onAudioEnded]);
 
-  // Build iframe embed URL (muted video track)
   let iframeSrc = "";
   if (isYouTube) {
     const videoId = extractYouTubeId(sourceUrl);
@@ -71,14 +67,13 @@ export default function VideoPlayer({
     }`;
   } else if (isBilibili) {
     const bvid = extractBilibiliId(sourceUrl);
-    // B站 embed has no mute param; video audio may overlap. See design 3.4.
     iframeSrc = `https://player.bilibili.com/player.html?bvid=${bvid}&autoplay=1`;
   }
 
   return (
     <div className="space-y-2">
       {iframeSrc && (
-        <div className="aspect-video rounded-xl overflow-hidden bg-black">
+        <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border ring-1 ring-inset ring-white/5">
           <iframe
             src={iframeSrc}
             className="w-full h-full"

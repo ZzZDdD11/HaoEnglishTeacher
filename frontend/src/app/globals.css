@@ -1,3 +1,109 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Studio Focus — dark recording-studio palette */
+    --background: 0 0% 4%; /* #0a0a0b near-black */
+    --foreground: 0 0% 98%; /* #fafafa */
+    --card: 240 5% 7%; /* #121214 elevated */
+    --card-foreground: 0 0% 98%;
+    --muted: 240 5% 14%; /* #222227 */
+    --muted-foreground: 240 4% 63%; /* #9a9aa3 */
+    --border: 240 5% 16%; /* #27272a */
+    --input: 240 5% 16%;
+    --ring: 152 100% 47%;
+
+    /* Accent — electric mint for recording & high scores */
+    --accent: 152 100% 47%; /* #00f5a0 */
+    --accent-foreground: 152 100% 6%;
+    --accent-muted: 152 60% 20%;
+
+    /* Semantic */
+    --warning: 24 100% 63%; /* #ff8c42 warm orange */
+    --danger: 0 84% 60%; /* #ff4d4d */
+    --recording: 345 100% 60%; /* #ff3366 recording red */
+    --success: 152 100% 47%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+
+  /* Subtle film grain overlay for atmosphere */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    background-color: hsl(var(--accent) / 0.3);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  /* Recording pulse ring */
+  .pulse-recording {
+    box-shadow: 0 0 0 0 hsl(var(--recording) / 0.7);
+    animation: pulse-rec 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-rec {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--recording) / 0.6);
+    }
+    50% {
+      box-shadow: 0 0 0 14px hsl(var(--recording) / 0);
+    }
+  }
+
+  /* Staggered fade-in-up */
+  .fade-up {
+    animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Equalizer bars (idle recording visual) */
+  .eq-bar {
+    animation: eq 1.2s ease-in-out infinite;
+  }
+
+  @keyframes eq {
+    0%,
+    100% {
+      transform: scaleY(0.3);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  /* Accent glow */
+  .glow-accent {
+    box-shadow: 0 0 40px -10px hsl(var(--accent) / 0.4);
+  }
+}

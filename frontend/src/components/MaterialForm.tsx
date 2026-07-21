@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { guestStorage } from "@/lib/storage";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   onMaterialCreated: () => void;
@@ -25,13 +26,11 @@ export default function MaterialForm({ onMaterialCreated }: Props) {
       const result = await apiClient.createMaterial({ source_url: url.trim() });
       setTaskId(result.task_id);
 
-      // Poll for completion (simplified — v2 would use WebSocket)
       let attempts = 0;
-      const maxAttempts = 60; // 2 minutes max
+      const maxAttempts = 60;
       const poll = setInterval(async () => {
         attempts++;
         try {
-          // Check via Python service status endpoint
           const statusRes = await fetch(`/api/python/process/status/${result.task_id}`);
           const status = await statusRes.json();
 
@@ -69,27 +68,28 @@ export default function MaterialForm({ onMaterialCreated }: Props) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="粘贴 YouTube 或 B站视频链接..."
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-base"
+          className="flex-1 px-4 py-3 bg-muted/30 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent/40 focus:border-accent outline-none transition-all text-base"
           disabled={loading}
         />
-        <button
-          type="submit"
-          disabled={loading || !url.trim()}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? "处理中..." : "导入"}
-        </button>
+        <Button type="submit" variant="accent" disabled={loading || !url.trim()}>
+          {loading ? "处理中" : "导入"}
+        </Button>
       </form>
 
       {loading && taskId && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex items-end gap-0.5 h-4">
+            <span className="eq-bar w-0.5 h-full bg-accent" style={{ animationDelay: "0ms" }} />
+            <span className="eq-bar w-0.5 h-full bg-accent" style={{ animationDelay: "150ms" }} />
+            <span className="eq-bar w-0.5 h-full bg-accent" style={{ animationDelay: "300ms" }} />
+            <span className="eq-bar w-0.5 h-full bg-accent" style={{ animationDelay: "450ms" }} />
+          </div>
           正在下载视频并生成字幕...
         </div>
       )}
 
       {error && (
-        <div className="mt-3 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+        <div className="mt-3 text-sm text-danger bg-danger/10 border border-danger/20 px-4 py-2 rounded-lg">
           {error}
         </div>
       )}
