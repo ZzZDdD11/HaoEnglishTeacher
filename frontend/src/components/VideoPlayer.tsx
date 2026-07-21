@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 interface Props {
   sourceUrl: string;
@@ -10,48 +10,52 @@ interface Props {
   onAudioEnded?: () => void;
 }
 
-export default function VideoPlayer({
-  sourceUrl,
-  audioSrc,
-  startMs,
-  endMs,
-  onAudioEnded,
-}: Props) {
+export interface VideoPlayerHandle {
+  /** Start (or restart) playback of the reference audio for the current sentence. */
+  play: () => void;
+  /** Skip the remainder of playback, as if it had ended naturally. */
+  skip: () => void;
+}
+
+const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
+  { sourceUrl, audioSrc, startMs, endMs, onAudioEnded },
+  ref
+) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [videoStopped, setVideoStopped] = useState(false);
+  const [iframeNonce, setIframeNonce] = useState(0);
 
   const isYouTube =
     sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be");
   const isBilibili = sourceUrl.includes("bilibili.com");
 
+  // Wire up the audio element for the current sentence. Does NOT autoplay —
+  // playback only starts when play() is called imperatively (Space key).
   useEffect(() => {
+    setVideoStopped(false);
+    setIframeNonce((n) => n + 1);
+
     const audio = audioRef.current;
     if (!audio || !audioSrc) return;
-
-    // Reset video state on sentence change
-    setVideoStopped(false);
 
     const startSec = startMs ? startMs / 1000 : 0;
     const endSec = endMs ? endMs / 1000 : undefined;
 
-    const stopVideoAndNotify = () => {
+    const stopAndNotify = () => {
       setVideoStopped(true);
       onAudioEnded?.();
     };
 
     const onLoadedMetadata = () => {
       audio.currentTime = startSec;
-      audio.play().catch(() => {});
     };
-
     const onTimeUpdate = () => {
       if (endSec !== undefined && audio.currentTime >= endSec) {
         audio.pause();
-        stopVideoAndNotify();
+        stopAndNotify();
       }
     };
-
-    const onEnded = () => stopVideoAndNotify();
+    const onEnded = () => stopAndNotify();
 
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -63,6 +67,29 @@ export default function VideoPlayer({
       audio.removeEventListener("ended", onEnded);
     };
   }, [audioSrc, startMs, endMs, onAudioEnded]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      play: () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        setVideoStopped(false);
+        setIframeNonce((n) => n + 1);
+        const startSec = startMs ? startMs / 1000 : 0;
+        audio.currentTime = startSec;
+        audio.play().catch(() => {});
+      },
+      skip: () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        audio.pause();
+        setVideoStopped(true);
+        onAudioEnded?.();
+      },
+    }),
+    [startMs, onAudioEnded]
+  );
 
   let iframeSrc = "";
   if (isYouTube) {
@@ -93,6 +120,7 @@ export default function VideoPlayer({
             </div>
           ) : (
             <iframe
+              key={iframeNonce}
               src={iframeSrc}
               className="w-full h-full"
               allow="autoplay; encrypted-media"
@@ -106,7 +134,9 @@ export default function VideoPlayer({
       )}
     </div>
   );
-}
+});
+
+export default VideoPlayer;
 
 function extractYouTubeId(url: string): string {
   const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
