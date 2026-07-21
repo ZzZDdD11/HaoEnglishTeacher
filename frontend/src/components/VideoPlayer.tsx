@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   sourceUrl: string;
@@ -18,6 +18,7 @@ export default function VideoPlayer({
   onAudioEnded,
 }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [videoStopped, setVideoStopped] = useState(false);
 
   const isYouTube =
     sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be");
@@ -27,8 +28,16 @@ export default function VideoPlayer({
     const audio = audioRef.current;
     if (!audio || !audioSrc) return;
 
+    // Reset video state on sentence change
+    setVideoStopped(false);
+
     const startSec = startMs ? startMs / 1000 : 0;
     const endSec = endMs ? endMs / 1000 : undefined;
+
+    const stopVideoAndNotify = () => {
+      setVideoStopped(true);
+      onAudioEnded?.();
+    };
 
     const onLoadedMetadata = () => {
       audio.currentTime = startSec;
@@ -38,13 +47,11 @@ export default function VideoPlayer({
     const onTimeUpdate = () => {
       if (endSec !== undefined && audio.currentTime >= endSec) {
         audio.pause();
-        onAudioEnded?.();
+        stopVideoAndNotify();
       }
     };
 
-    const onEnded = () => {
-      onAudioEnded?.();
-    };
+    const onEnded = () => stopVideoAndNotify();
 
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -74,12 +81,24 @@ export default function VideoPlayer({
     <div className="space-y-2">
       {iframeSrc && (
         <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border ring-1 ring-inset ring-white/5">
-          <iframe
-            src={iframeSrc}
-            className="w-full h-full"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-          />
+          {videoStopped ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <div className="flex items-end gap-0.5 h-5">
+                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "0ms" }} />
+                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "120ms" }} />
+                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "240ms" }} />
+                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "360ms" }} />
+              </div>
+              <span className="text-xs uppercase tracking-[0.2em] font-mono">跟读中</span>
+            </div>
+          ) : (
+            <iframe
+              src={iframeSrc}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+          )}
         </div>
       )}
       {audioSrc && (
