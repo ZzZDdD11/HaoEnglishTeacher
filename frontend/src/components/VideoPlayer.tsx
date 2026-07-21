@@ -17,22 +17,31 @@ export interface VideoPlayerHandle {
   skip: () => void;
 }
 
+/**
+ * Only YouTube's embed API supports seeking to a start/end time AND muting
+ * the video track (`start`, `end`, `mute` params). Bilibili's embed exposes
+ * neither: it always plays from the beginning and always plays its own
+ * audio — there is no way to keep it in sync with a per-sentence reference
+ * audio track, and its audio would always overlap with ours.
+ *
+ * So: YouTube gets the dual-track experience (muted video + our audio).
+ * Everything else falls back to audio-only — no video iframe, ever.
+ */
 const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
   { sourceUrl, audioSrc, startMs, endMs, onAudioEnded },
   ref
 ) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [videoStopped, setVideoStopped] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [iframeNonce, setIframeNonce] = useState(0);
 
   const isYouTube =
     sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be");
-  const isBilibili = sourceUrl.includes("bilibili.com");
 
   // Wire up the audio element for the current sentence. Does NOT autoplay —
   // playback only starts when play() is called imperatively (Space key).
   useEffect(() => {
-    setVideoStopped(false);
+    setIsPlaying(false);
     setIframeNonce((n) => n + 1);
 
     const audio = audioRef.current;
@@ -42,7 +51,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
     const endSec = endMs ? endMs / 1000 : undefined;
 
     const stopAndNotify = () => {
-      setVideoStopped(true);
+      setIsPlaying(false);
       onAudioEnded?.();
     };
 
@@ -74,7 +83,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
       play: () => {
         const audio = audioRef.current;
         if (!audio) return;
-        setVideoStopped(false);
+        setIsPlaying(true);
         setIframeNonce((n) => n + 1);
         const startSec = startMs ? startMs / 1000 : 0;
         audio.currentTime = startSec;
@@ -84,7 +93,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
         const audio = audioRef.current;
         if (!audio) return;
         audio.pause();
-        setVideoStopped(true);
+        setIsPlaying(false);
         onAudioEnded?.();
       },
     }),
@@ -99,36 +108,40 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(function VideoPlayer(
     iframeSrc = `https://www.youtube.com/embed/${videoId}?start=${startSec}&autoplay=1&mute=1&controls=0&rel=0${
       endSec ? `&end=${endSec}` : ""
     }`;
-  } else if (isBilibili) {
-    const bvid = extractBilibiliId(sourceUrl);
-    iframeSrc = `https://player.bilibili.com/player.html?bvid=${bvid}&autoplay=1`;
   }
+
+  // YouTube: show the muted video while playing, swap to the "跟读中"
+  // placeholder once recording starts (video stopped).
+  const showVideoIframe = isYouTube && iframeSrc && isPlaying;
 
   return (
     <div className="space-y-2">
-      {iframeSrc && (
-        <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border ring-1 ring-inset ring-white/5">
-          {videoStopped ? (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              <div className="flex items-end gap-0.5 h-5">
-                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "0ms" }} />
-                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "120ms" }} />
-                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "240ms" }} />
-                <span className="eq-bar w-1 h-full bg-recording" style={{ animationDelay: "360ms" }} />
-              </div>
-              <span className="text-xs uppercase tracking-[0.2em] font-mono">跟读中</span>
+      <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border ring-1 ring-inset ring-white/5">
+        {showVideoIframe ? (
+          <iframe
+            key={iframeNonce}
+            src={iframeSrc}
+            className="w-full h-full"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <div className="flex items-end gap-0.5 h-5">
+              {[0, 120, 240, 360].map((delay) => (
+                <span
+                  key={delay}
+                  className={`eq-bar w-1 h-full ${isPlaying ? "bg-accent" : "bg-recording"}`}
+                  style={{ animationDelay: `${delay}ms` }}
+                />
+              ))}
             </div>
-          ) : (
-            <iframe
-              key={iframeNonce}
-              src={iframeSrc}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
-          )}
-        </div>
-      )}
+            <span className="text-xs uppercase tracking-[0.2em] font-mono">
+              {isPlaying ? "播放中" : "跟读中"}
+            </span>
+          </div>
+        )}
+      </div>
       {audioSrc && (
         <audio ref={audioRef} src={audioSrc} className="hidden" preload="auto" />
       )}
@@ -144,9 +157,4 @@ function extractYouTubeId(url: string): string {
   const longMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
   if (longMatch) return longMatch[1];
   return "";
-}
-
-function extractBilibiliId(url: string): string {
-  const match = url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/);
-  return match ? match[1] : "";
 }
