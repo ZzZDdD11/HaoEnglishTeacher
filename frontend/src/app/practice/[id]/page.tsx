@@ -1,26 +1,34 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  HelpCircle,
+  Play,
+  RotateCcw,
+  Check,
+} from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { guestStorage } from "@/lib/storage";
-import { useRecorder } from "@/hooks/useRecorder";
-import VideoPlayer, { type VideoPlayerHandle } from "@/components/VideoPlayer";
+import { usePracticeFlow } from "@/hooks/usePracticeFlow";
+import VideoPlayer from "@/components/VideoPlayer";
 import RecorderPanel from "@/components/RecorderPanel";
 import ScoreDisplay from "@/components/ScoreDisplay";
 import ProgressBar from "@/components/ProgressBar";
+import WordScoreList from "@/components/WordScoreList";
+import SentenceSidebar from "@/components/SentenceSidebar";
+import ShortcutsPanel from "@/components/ShortcutsPanel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Material, TranscriptSentence, SentenceAttempt } from "@/types";
+import type { Material, SentenceAttempt } from "@/types";
+import type { Phase } from "@/hooks/usePracticeFlow";
 
-// ready       — sentence loaded, waiting for user to play reference audio
-// playing     — reference audio playing
-// armed       — playback finished, waiting for user to start recording
-// recording   — recording user's voice
-// evaluating  — submitting + scoring
-// showing_score — result visible, waiting for user to advance
-type Phase = "ready" | "playing" | "armed" | "recording" | "evaluating" | "showing_score";
+const SHORTCUTS_SEEN_KEY = "shadowing_shortcuts_seen";
 
 export default function PracticePage() {
   const params = useParams();
@@ -33,18 +41,22 @@ export default function PracticePage() {
   const [attempts, setAttempts] = useState<Record<number, SentenceAttempt>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<Phase>("ready");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
-  const videoRef = useRef<VideoPlayerHandle>(null);
-  const recorder = useRecorder();
-
-  const currentSentence: TranscriptSentence | undefined =
-    material?.transcript?.[currentIndex];
+  const currentSentence = material?.transcript?.[currentIndex];
   const lastAttempt = attempts[currentIndex];
+  const total = material?.transcript?.length ?? 0;
 
   useEffect(() => {
     loadMaterial();
   }, [materialId]);
+
+  useEffect(() => {
+    if (!localStorage.getItem(SHORTCUTS_SEEN_KEY)) {
+      setShortcutsOpen(true);
+      localStorage.setItem(SHORTCUTS_SEEN_KEY, "1");
+    }
+  }, []);
 
   const loadMaterial = async () => {
     try {
@@ -64,83 +76,13 @@ export default function PracticePage() {
     }
   };
 
-  // Reset to "ready" whenever the sentence changes
-  useEffect(() => {
-    setPhase("ready");
-  }, [currentIndex]);
-
-  const handlePlay = useCallback(() => {
-    if (phase !== "ready") return;
-    videoRef.current?.play();
-    setPhase("playing");
-  }, [phase]);
-
-  const handleAudioEnded = useCallback(() => {
-    setPhase("armed");
-  }, []);
-
-  const handleStartRecording = useCallback(async () => {
-    if (phase !== "armed") return;
-    await recorder.start();
-    setPhase("recording");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  const handleStopRecording = useCallback(() => {
-    if (phase !== "recording") return;
-    recorder.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  // When the recorder produces a blob (either via VAD auto-stop or manual
-  // stop), submit it for evaluation.
-  const prevBlobRef = useRef<Blob | null>(null);
-  useEffect(() => {
-    if (
-      recorder.audioBlob &&
-      recorder.audioBlob !== prevBlobRef.current &&
-      sessionId &&
-      currentSentence
-    ) {
-      prevBlobRef.current = recorder.audioBlob;
-      const blob = recorder.audioBlob;
-      setPhase("evaluating");
-      apiClient
-        .submitAttempt(sessionId, blob, currentSentence.sentence_index, currentSentence.text)
-        .then((result) => {
-          setAttempts((prev) => ({ ...prev, [currentIndex]: result.attempt }));
-          setPhase("showing_score");
-        })
-        .catch(() => {
-          setError("评分失败，请重试");
-          setPhase("showing_score");
-        });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorder.audioBlob, sessionId, currentSentence, currentIndex]);
-
   const goToSentence = (index: number) => {
-    if (!material?.transcript) return;
-    if (index >= 0 && index < material.transcript.length) {
-      setCurrentIndex(index);
-    }
+    if (index >= 0 && index < total) setCurrentIndex(index);
   };
 
-  const handleAdvance = useCallback(() => {
-    if (phase !== "showing_score") return;
-    const total = material?.transcript?.length ?? 0;
-    if (currentIndex < total - 1) {
-      goToSentence(currentIndex + 1);
-    } else {
-      handleComplete();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentIndex, material]);
-
-  const handleReRecord = useCallback(() => {
-    if (phase !== "showing_score") return;
-    setPhase("armed");
-  }, [phase]);
+  const handleAttemptRecorded = (index: number, attempt: SentenceAttempt) => {
+    setAttempts((prev) => ({ ...prev, [index]: attempt }));
+  };
 
   const handleComplete = async () => {
     if (!sessionId) return;
@@ -152,35 +94,33 @@ export default function PracticePage() {
     router.push(`/report/${sessionId}`);
   };
 
-  // Space bar drives the whole flow: play -> start recording -> stop recording -> advance
+  const handleAdvance = () => {
+    if (currentIndex < total - 1) {
+      goToSentence(currentIndex + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
+  const flow = usePracticeFlow({
+    sessionId,
+    currentSentence,
+    currentIndex,
+    onAttemptRecorded: handleAttemptRecorded,
+    onAdvance: handleAdvance,
+  });
+
+  // "?" toggles the shortcuts panel from anywhere on the page.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
+      if (e.key !== "?") return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-      e.preventDefault();
-
-      switch (phase) {
-        case "ready":
-          handlePlay();
-          break;
-        case "armed":
-          handleStartRecording();
-          break;
-        case "recording":
-          handleStopRecording();
-          break;
-        case "showing_score":
-          handleAdvance();
-          break;
-        default:
-          break;
-      }
+      setShortcutsOpen((v) => !v);
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [phase, handlePlay, handleStartRecording, handleStopRecording, handleAdvance]);
+  }, []);
 
   if (loading) {
     return (
@@ -205,17 +145,18 @@ export default function PracticePage() {
     );
   }
 
-  const total = material.transcript.length;
-
   return (
     <main className="max-w-6xl mx-auto py-6 px-4">
+      <ShortcutsPanel open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => router.push("/")}
-          className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm"
         >
-          ← 返回
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+          返回
         </button>
         <h2 className="font-display text-lg text-foreground truncate max-w-md">
           {material.title || "练习中"}
@@ -224,65 +165,75 @@ export default function PracticePage() {
           <span className="font-mono text-xs text-muted-foreground tabular-nums">
             {currentIndex + 1}/{total}
           </span>
-          <Badge variant={phase === "recording" ? "danger" : phase === "evaluating" ? "warning" : "accent"}>
-            {phaseLabel(phase)}
-          </Badge>
+          <Badge variant={badgeVariant(flow.phase)}>{phaseLabel(flow.phase)}</Badge>
+          <button
+            onClick={() => setShortcutsOpen(true)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="操作说明"
+          >
+            <HelpCircle className="w-4 h-4" strokeWidth={1.5} />
+          </button>
         </div>
       </div>
 
-      {/* Space bar hint */}
+      {/* Current action hint */}
       <div className="mb-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <kbd className="px-2 py-1 rounded border border-border bg-muted/40 font-mono">Space</kbd>
-        <span>{spaceHint(phase)}</span>
+        <span>{spaceHint(flow.phase)}</span>
       </div>
 
-      {/* Main content: video + sidebar */}
+      {/* Main content: video + sentence list, sidebar recorder/feedback */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Video + sentence */}
         <div className="space-y-4">
           <VideoPlayer
-            ref={videoRef}
+            ref={flow.videoRef}
             key={currentIndex}
             sourceUrl={material.source_url}
             audioSrc={`/api/materials/${materialId}/audio`}
             startMs={currentSentence?.start_ms}
             endMs={currentSentence?.end_ms}
-            onAudioEnded={handleAudioEnded}
+            onAudioEnded={flow.onAudioEnded}
           />
 
-          <Card className="p-5 fade-up" key={currentIndex}>
+          <Card className="p-5" key={`sentence-${currentIndex}`}>
             <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-2 font-mono">
               Sentence {currentIndex + 1}
             </div>
-            <p className="font-display text-xl text-foreground leading-snug">
+            <p className="font-display text-xl text-foreground leading-snug slide-in">
               {currentSentence?.text || "—"}
             </p>
           </Card>
+
+          <SentenceSidebar
+            sentences={material.transcript}
+            attempts={attempts}
+            currentIndex={currentIndex}
+            onSelect={goToSentence}
+          />
         </div>
 
-        {/* Right: Recorder + feedback */}
         <div className="space-y-4">
-          {(phase === "ready" || phase === "playing") && (
+          {(flow.phase === "ready" || flow.phase === "playing") && (
             <Card className="p-8 flex flex-col items-center gap-3 text-muted-foreground">
-              <span className="text-2xl">▶</span>
+              <Play className="w-6 h-6" strokeWidth={1.5} />
               <span className="text-sm">
-                {phase === "playing" ? "播放中..." : "按空格键播放原声"}
+                {flow.phase === "playing" ? "播放中..." : "按空格键播放原声"}
               </span>
             </Card>
           )}
 
-          {(phase === "armed" || phase === "recording") && currentSentence && (
+          {(flow.phase === "armed" || flow.phase === "recording") && currentSentence && (
             <RecorderPanel
-              armed={phase === "armed"}
-              isRecording={phase === "recording"}
-              duration={recorder.duration}
-              audioUrl={recorder.audioUrl}
-              onStart={handleStartRecording}
-              onStop={handleStopRecording}
+              armed={flow.phase === "armed"}
+              isRecording={flow.recorder.isRecording}
+              duration={flow.recorder.duration}
+              audioUrl={flow.recorder.audioUrl}
+              onStart={flow.actions.startRecording}
+              onStop={flow.actions.stopRecording}
             />
           )}
 
-          {phase === "evaluating" && (
+          {flow.phase === "evaluating" && (
             <Card className="p-8 flex flex-col items-center gap-3">
               <div className="flex items-end gap-0.5 h-6">
                 <span className="eq-bar w-1 h-full bg-accent" style={{ animationDelay: "0ms" }} />
@@ -295,31 +246,40 @@ export default function PracticePage() {
             </Card>
           )}
 
-          {phase === "showing_score" && lastAttempt && (
-            <Card className="p-6 space-y-5 fade-up">
+          {flow.phase === "error" && (
+            <Card className="p-8 flex flex-col items-center gap-4 border-warning/30 score-reveal">
+              <AlertTriangle className="w-6 h-6 text-warning" strokeWidth={1.5} />
+              <div className="text-center space-y-1">
+                <p className="text-sm text-foreground">
+                  {flow.errorKind === "mic" ? "无法访问麦克风" : "评分失败"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {flow.errorKind === "mic"
+                    ? "请检查浏览器麦克风权限后重试"
+                    : "网络或服务异常，可重试或跳过本句"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="accent" size="sm" onClick={flow.actions.retry}>
+                  按空格重试
+                </Button>
+                <Button variant="outline" size="sm" onClick={flow.actions.skipSentence}>
+                  跳过本句
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {flow.phase === "showing_score" && lastAttempt && (
+            <Card className="p-6 space-y-5 score-reveal">
               <ScoreDisplay score={lastAttempt.score} label="本句得分" />
 
               {lastAttempt.word_scores && lastAttempt.word_scores.length > 0 && (
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-2 font-mono">
-                    逐词评分
+                    逐词评分 · 点击查看详情
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {lastAttempt.word_scores.map((ws, i) => (
-                      <Badge
-                        key={i}
-                        variant={
-                          ws.score >= 80
-                            ? "accent"
-                            : ws.score >= 60
-                            ? "warning"
-                            : "danger"
-                        }
-                      >
-                        {ws.word} {Math.round(ws.score)}
-                      </Badge>
-                    ))}
-                  </div>
+                  <WordScoreList wordScores={lastAttempt.word_scores} />
                 </div>
               )}
 
@@ -355,18 +315,16 @@ export default function PracticePage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleReRecord}
-            disabled={phase !== "showing_score"}
+            onClick={flow.actions.reRecord}
+            disabled={flow.phase !== "showing_score"}
           >
-            🔁 重录
+            <RotateCcw className="w-4 h-4" strokeWidth={1.5} />
+            重录
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => videoRef.current?.play()}
-          >
-            ▶ 重播
+          <Button variant="outline" size="sm" onClick={() => flow.videoRef.current?.play()}>
+            <Play className="w-4 h-4" strokeWidth={1.5} />
+            重播
           </Button>
 
           <Button
@@ -375,16 +333,18 @@ export default function PracticePage() {
             onClick={() => goToSentence(currentIndex - 1)}
             disabled={currentIndex === 0}
           >
-            ⏮
+            <ChevronLeft className="w-4 h-4" strokeWidth={1.5} />
           </Button>
 
           {currentIndex < total - 1 ? (
             <Button variant="default" size="sm" onClick={() => goToSentence(currentIndex + 1)}>
-              下一句 ⏭
+              下一句
+              <ChevronRight className="w-4 h-4" strokeWidth={1.5} />
             </Button>
           ) : (
             <Button variant="accent" size="sm" onClick={handleComplete}>
-              完成 ✓
+              完成
+              <Check className="w-4 h-4" strokeWidth={1.5} />
             </Button>
           )}
         </div>
@@ -405,9 +365,18 @@ function phaseLabel(phase: Phase): string {
       return "评估中";
     case "showing_score":
       return "查看分数";
+    case "error":
+      return "出错了";
     default:
       return "待播放";
   }
+}
+
+function badgeVariant(phase: Phase): "accent" | "danger" | "warning" {
+  if (phase === "recording") return "danger";
+  if (phase === "evaluating") return "warning";
+  if (phase === "error") return "danger";
+  return "accent";
 }
 
 function spaceHint(phase: Phase): string {
@@ -420,6 +389,8 @@ function spaceHint(phase: Phase): string {
       return "停止录音";
     case "showing_score":
       return "下一句";
+    case "error":
+      return "重试";
     default:
       return "请稍候";
   }

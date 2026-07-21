@@ -1,5 +1,6 @@
 "use client";
 
+import { Mic } from "lucide-react";
 import { useWaveform } from "@/hooks/useWaveform";
 import WaveformCompare from "@/components/WaveformCompare";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ export default function RecorderPanel({
           </>
         ) : (
           <>
-            <span className="text-2xl">🎙</span>
+            <Mic className="w-6 h-6" strokeWidth={1.5} />
             <span>{armed ? "按空格键开始录音" : "点击开始录音"}</span>
           </>
         )}

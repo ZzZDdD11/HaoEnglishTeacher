@@ -3,6 +3,7 @@ import type { SentenceAttempt } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ScoreDisplay from "@/components/ScoreDisplay";
+import WordScoreList from "@/components/WordScoreList";
 
 interface Props {
   attempt: SentenceAttempt;
@@ -35,25 +36,13 @@ export default function SentenceReview({ attempt, sentenceText, index }: Props) 
           </p>
 
           {attempt.word_scores && attempt.word_scores.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {attempt.word_scores.map((ws, i) => (
-                <Badge
-                  key={i}
-                  variant={
-                    ws.score >= 80 ? "accent" : ws.score >= 60 ? "warning" : "danger"
-                  }
-                >
-                  {ws.word}
-                  {ws.issue && (
-                    <span className="ml-1 opacity-60 text-[10px]">{ws.issue}</span>
-                  )}
-                </Badge>
-              ))}
+            <div className="mt-3">
+              <WordScoreList wordScores={attempt.word_scores} />
             </div>
           )}
         </div>
 
-        <ScoreDisplay score={attempt.score} size="sm" />
+        <ScoreDisplay score={attempt.score} size="sm" animate={false} />
       </div>
     </Card>
   );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import MaterialForm from "@/components/MaterialForm";
 import MaterialList from "@/components/MaterialList";
+import PracticeHistory from "@/components/PracticeHistory";
 
 export default function HomePage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -23,6 +24,10 @@ export default function HomePage() {
 
       <div className="mb-12 fade-up" style={{ animationDelay: "100ms" }}>
         <MaterialForm onMaterialCreated={() => setRefreshKey((k) => k + 1)} />
+      </div>
+
+      <div className="mb-12">
+        <PracticeHistory />
       </div>
 
       <section className="fade-up" style={{ animationDelay: "200ms" }}>

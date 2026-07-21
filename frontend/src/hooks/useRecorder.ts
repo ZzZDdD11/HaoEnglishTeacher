@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseRecorderReturn {
   start: () => Promise<void>;
@@ -20,6 +20,7 @@ export function useRecorder(): UseRecorderReturn {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [duration, setDuration] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
@@ -29,6 +30,7 @@ export function useRecorder(): UseRecorderReturn {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const silenceStartRef = useRef<number>(0);
+  const audioUrlRef = useRef<string | null>(null);
 
   const cleanupVad = () => {
     if (vadIntervalRef.current) {
@@ -53,13 +55,29 @@ export function useRecorder(): UseRecorderReturn {
     }
   }, []);
 
+  // Release the microphone and any pending timers/blob URLs if the
+  // consuming component unmounts mid-recording (e.g. user navigates away).
+  useEffect(() => {
+    return () => {
+      stop();
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+    };
+  }, [stop]);
+
   const start = useCallback(async () => {
     chunksRef.current = [];
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "audio/mp4",
+      mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4",
     });
 
     mediaRecorder.ondataavailable = (e) => {
@@ -70,15 +88,19 @@ export function useRecorder(): UseRecorderReturn {
 
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
       setAudioBlob(blob);
-      setAudioUrl(URL.createObjectURL(blob));
+      setAudioUrl(url);
       setIsRecording(false);
+
       if (timerRef.current) clearInterval(timerRef.current);
       cleanupVad();
       if (maxTimerRef.current) {
         clearTimeout(maxTimerRef.current);
         maxTimerRef.current = null;
       }
+
       stream.getTracks().forEach((t) => t.stop());
     };
 
@@ -111,7 +133,6 @@ export function useRecorder(): UseRecorderReturn {
       vadIntervalRef.current = setInterval(() => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteTimeDomainData(data);
-        // Compute RMS
         let sum = 0;
         for (let i = 0; i < data.length; i++) {
           const v = (data[i] - 128) / 128;
@@ -123,7 +144,6 @@ export function useRecorder(): UseRecorderReturn {
           if (silenceStartRef.current === 0) {
             silenceStartRef.current = Date.now();
           } else if (Date.now() - silenceStartRef.current >= SILENCE_DURATION_MS) {
-            // Sustained silence -> stop
             stop();
           }
         } else {
