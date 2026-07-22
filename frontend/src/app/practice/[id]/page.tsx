@@ -183,7 +183,7 @@ export default function PracticePage() {
       </div>
 
       {/* Main content: video + sentence list, sidebar recorder/feedback */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-4">
           <VideoPlayer
             ref={flow.videoRef}
@@ -212,7 +212,7 @@ export default function PracticePage() {
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-6">
           {(flow.phase === "ready" || flow.phase === "playing") && (
             <Card className="p-8 flex flex-col items-center gap-3 text-muted-foreground">
               <Play className="w-6 h-6" strokeWidth={1.5} />
